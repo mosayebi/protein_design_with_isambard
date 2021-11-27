@@ -4,9 +4,9 @@
 - Clone the repo and install required python packages
 ```
 $ git clone https://github.com/mosayebi/protein_design_with_isambard.git
+$ cd protein_design_with_isambard
 $ pip install --upgrade pip
-$ pip install wheel
-$ pip install isambard jupyter nglview
+$ pip install -e .
 ```
 
 - Install `isambard` dependencies, and make sure their executables are in the `PATH`
@@ -15,6 +15,5 @@ $ pip install isambard jupyter nglview
 
 - Run the notebook
 ```
-$ cd protein_design_with_isambard/notebooks
-$ jupyter-notebook scapTet_dimer_tutorial.ipynb
+$ jupyter-notebook ./notebooks/scapTet_dimer_tutorial.ipynb
 ```
