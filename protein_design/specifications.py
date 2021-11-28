@@ -1,3 +1,4 @@
+from typing import overload
 import numpy as np
 import copy
 from scipy.spatial import KDTree
@@ -73,6 +74,8 @@ class Dimer(isambard.ampal.Assembly):
         T = spherical_to_cartesian(self.r, self.phi, self.theta)
         m2.translate(T)
 
+        self.m1 = m1
+        self.m2 = m2
         self._molecules = (m1 + m2)._molecules
         self.id = f"dimer({m1.id})"
         self.relabel_all()
@@ -99,8 +102,94 @@ class Dimer(isambard.ampal.Assembly):
     def overlap(self):
         return self.num_overlaps(cutoff=1.0) > 0
 
+    @property
+    def coordinate_system(self):
+        return self.m1.get_coordinate_system_func(self.m1)
+
     def visualise(self):
         return visualise(self)
+
+
+class Lattice(isambard.ampal.Assembly):
+    def __init__(self, monomer:Monomer, r=20, theta=0, phi=0, alpha=0, beta=0, gamma=0,
+                lattice_a=40, lattice_b=40, lattice_theta=0,
+                lattice_alpha=0, lattice_beta=0, lattice_gamma=0, next_nearest_nb=False):
+        super().__init__()
+
+        self.lattice_a=lattice_a
+        self.lattice_b=lattice_b
+        self.lattice_theta=lattice_theta
+        self.lattice_alpha=lattice_alpha
+        self.lattice_beta=lattice_beta
+        self.lattice_gamma=lattice_gamma
+
+        dimer = Dimer(monomer, r, theta, phi, alpha, beta, gamma)
+
+        # euler rotations (see https://en.wikipedia.org/wiki/Euler_angles)
+        dimer.rotate(angle=self.lattice_alpha, axis=dimer.coordinate_system[2])
+        dimer.rotate(angle=self.lattice_beta, axis=dimer.coordinate_system[0])
+        dimer.rotate(angle=self.lattice_gamma, axis=dimer.coordinate_system[2])
+
+        self.dimer = dimer
+
+        self.v1 = np.array([self.lattice_a, 0, 0])
+        self.v2 = np.array([self.lattice_b * np.cos(self.lattice_theta/180*np.pi),
+                            self.lattice_b * np.sin(self.lattice_theta/180*np.pi),
+                            0])
+
+        assembly = self.dimer
+        if next_nearest_nb:
+            nbs = [[1,0], [0,1], [-1,0], [0,-1], [1,1], [-1,1], [1,-1], [-1,-1]]
+        else:
+            nbs = [[1,0], [0,1], [-1,0], [0,-1]]
+
+        for [x, y] in nbs:
+            m = copy.deepcopy(self.dimer)
+            m.translate(x*self.v1 + y*self.v2)
+            assembly += m
+
+        self._molecules = assembly._molecules
+        self.id = f"lattice({self.dimer.id})"
+        self.relabel_all()
+        for m in self._molecules:
+            m.parent = self
+
+    @lru_cache(maxsize=1)
+    def num_overlaps(self, cutoff=1.0, workers=1):
+        '''Check (efficiently) for the number of overlaps between backbone atoms
+        (i.e. number of pairs of atoms whose distance are closer than cutoff1)
+        '''
+        overlaps = 0
+        vs = [np.array([atom._vector for atom in m.backbone.get_atoms()])
+              for m in self._molecules]
+        if len(vs) > 1:
+            tree = KDTree(vs[0])
+            for v in vs[1:]:
+                mindist, minid = tree.query(
+                    v, 1, distance_upper_bound=cutoff, workers=workers)
+                overlaps += (mindist < cutoff).sum()
+        return overlaps
+
+    @property
+    @lru_cache(maxsize=1)
+    def overlap(self):
+        cutoff = 1.0
+        workers = 1
+        vs = [np.array([atom._vector for atom in m.backbone.get_atoms()])
+              for m in self._molecules]
+        if len(vs) > 1:
+            tree = KDTree(vs[0])
+            for v in vs[1:]:
+                mindist, minid = tree.query(v, 1, distance_upper_bound=cutoff, workers=workers)
+                if (mindist < cutoff).sum() > 1: return True
+        return False
+
+    def visualise(self):
+        return visualise(self)
+
+
+SPECIFICATIONS = {'Dimer': Dimer,
+                  'Lattice': Lattice}
 
 
 def build_model(spec_seq_params):
@@ -113,9 +202,9 @@ def build_model(spec_seq_params):
 
 
 def get_buff_total_energy(ampal_object, overlap_energy=0):
-    # if there was overlap, the ampal_object is still of type Dimer,
+    # if there was overlap, the ampal_object is still of type Dimer/Lattice,
     # otherwise the packed-side-chain model is of type ampal.assembly.Assembly
-    if type(ampal_object) is Dimer:
+    if type(ampal_object) is Dimer or type(ampal_object) is Lattice:
         energy = overlap_energy
     else:
         energy = budeff.get_internal_energy(ampal_object).total_energy

@@ -2,7 +2,7 @@ import argparse
 import pandas as pd
 import numpy as np
 
-from protein_design.specifications import Monomer, Dimer
+from protein_design.specifications import Monomer, SPECIFICATIONS
 from protein_design.specifications import get_buff_total_energy
 from protein_design.specifications import build_model
 
@@ -16,9 +16,9 @@ def parse_parameters_csv(parameters_csv):
     parameters = []
     for p_type, name, mean, var in df.values:
         if p_type == 'dynamic':
-            parameters.append(Parameter.dynamic(name, float(mean), float(var)))
+            parameters.append(Parameter.dynamic(name, eval(mean), eval(var)))
         elif p_type == 'static':
-            parameters.append(Parameter.static(name, float(mean)))
+            parameters.append(Parameter.static(name, eval(mean)))
         else:
             raise ValueError(f"Unknown parameter type '{p_type}'!")
     return parameters
@@ -70,15 +70,17 @@ def opt(args):
     all_sequences = parse_sequences_csv(args.sequences_csv)
     print("[loading scapTet_pdb]")
     scapTet = isambard.ampal.load_pdb(args.scapTet_pdb)
-    monomer = Monomer(scapTet, get_coordinate_system_func=get_coordinate_system_scapTet)
+    monomer = Monomer(
+        scapTet, get_coordinate_system_func=get_coordinate_system_scapTet)
     print("[loading parameters_csv]")
     parameters = [Parameter.static('monomer', monomer)]
     parameters.extend(parse_parameters_csv(args.parameters_csv))
 
     for seq_id, sequences in all_sequences.items():
-        print(f"[optimising seq_id='{seq_id}' using GA with {args.cores} cores ...]")
+        print(
+            f"[optimising seq_id='{seq_id}' using GA with {args.cores} cores ...]")
         print(f"sequences : {sequences}")
-        opt_ga = ev_opts.GA(Dimer, sequences, parameters,
+        opt_ga = ev_opts.GA(SPECIFICATIONS[args.specification], sequences, parameters,
                             eval_fn=get_buff_total_energy,
                             build_fn=build_model)
 
@@ -91,7 +93,7 @@ def opt(args):
         final_params = opt_ga.parse_individual(best_idx)
 
         print(f"[saving best model for '{seq_id}']")
-        with open(f'best_dimer_{seq_id}.pdb', 'w') as f:
+        with open(f'best_model_{seq_id}.pdb', 'w') as f:
             f.write(best_dimer.pdb)
 
         print(f"[writing best parameters for '{seq_id}']")
@@ -101,6 +103,8 @@ def opt(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument("specification", default='Dimer',
+                        choices=list(SPECIFICATIONS.keys()))
     parser.add_argument("scapTet_pdb")
     parser.add_argument("sequences_csv")
     parser.add_argument("parameters_csv")
