@@ -10,15 +10,17 @@ from isambard.optimisation.evo_optimizers import Parameter
 import isambard.optimisation.evo_optimizers as ev_opts
 import isambard
 
+import datetime
+
 
 def parse_parameters_csv(parameters_csv):
     df = pd.read_csv(parameters_csv)
     parameters = []
     for p_type, name, mean, var in df.values:
         if p_type == 'dynamic':
-            parameters.append(Parameter.dynamic(name, eval(mean), eval(var)))
+            parameters.append(Parameter.dynamic(name, eval(str(mean)), eval(str(var))))
         elif p_type == 'static':
-            parameters.append(Parameter.static(name, eval(mean)))
+            parameters.append(Parameter.static(name, eval(str(mean))))
         else:
             raise ValueError(f"Unknown parameter type '{p_type}'!")
     return parameters
@@ -77,9 +79,10 @@ def opt(args):
     parameters.extend(parse_parameters_csv(args.parameters_csv))
 
     for seq_id, sequences in all_sequences.items():
-        print(
-            f"[optimising seq_id='{seq_id}' using GA with {args.cores} cores ...]")
-        print(f"sequences : {sequences}")
+        print(f"\n[{datetime.datetime.now()}]")
+        print(f"[optimising seq_id='{seq_id}' using GA with {args.cores} cores ...]")
+        seq_string = ',\n\t'.join(sequences)
+        print(f"[sequences:\n\t{seq_string}\n]\n")
         opt_ga = ev_opts.GA(SPECIFICATIONS[args.specification], sequences, parameters,
                             eval_fn=get_buff_total_energy,
                             build_fn=build_model)
@@ -92,13 +95,14 @@ def opt(args):
         best_idx = opt_ga.halloffame[0]
         final_params = opt_ga.parse_individual(best_idx)
 
-        print(f"[saving best model for '{seq_id}']")
+        print(f"\n[saving best model for '{seq_id}']")
         with open(f'best_model_{seq_id}.pdb', 'w') as f:
             f.write(best_dimer.pdb)
 
         print(f"[writing best parameters for '{seq_id}']")
         with open(f'best_params_{seq_id}.txt', 'w') as f:
-            f.write(final_params)
+            f.write(f'{final_params}')
+    print(f"[{datetime.datetime.now()}]")
 
 
 if __name__ == '__main__':
