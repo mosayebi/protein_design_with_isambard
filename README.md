@@ -1,7 +1,6 @@
 # protein design with isambard
 
 ## Quick start
-- Clone the repo and install required python packages
 ```
 $ git clone https://github.com/mosayebi/protein_design_with_isambard.git
 $ cd protein_design_with_isambard
