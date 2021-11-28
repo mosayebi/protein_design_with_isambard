@@ -29,14 +29,8 @@ class Monomer(isambard.ampal.Assembly):
         return self.get_coordinate_system_func(self)
 
     def visualise(self, coordinate_system=False):
-        view = visualise(self)
-        if coordinate_system:
-            for v, name, color in zip(self.coordinate_system,
-                                      ['x', 'y', 'z'],
-                                      [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
-                                      ):
-                view.shape.add_arrow([0, 0, 0], 5*v, color, 0.5, name)
-        return view
+        coordinate_system_ = self.coordinate_system if coordinate_system else None
+        return visualise(self, coordinate_system=coordinate_system_)
 
 
 class Dimer(isambard.ampal.Assembly):
@@ -106,8 +100,9 @@ class Dimer(isambard.ampal.Assembly):
     def coordinate_system(self):
         return self.m1.get_coordinate_system_func(self.m1)
 
-    def visualise(self):
-        return visualise(self)
+    def visualise(self, coordinate_system=False):
+        coordinate_system_ = self.coordinate_system if coordinate_system else None
+        return visualise(self, coordinate_system=coordinate_system_)
 
 
 class Lattice(isambard.ampal.Assembly):
@@ -124,12 +119,10 @@ class Lattice(isambard.ampal.Assembly):
         self.lattice_gamma=lattice_gamma
 
         dimer = Dimer(monomer, r, theta, phi, alpha, beta, gamma)
-
         # euler rotations (see https://en.wikipedia.org/wiki/Euler_angles)
         dimer.rotate(angle=self.lattice_alpha, axis=dimer.coordinate_system[2])
         dimer.rotate(angle=self.lattice_beta, axis=dimer.coordinate_system[0])
         dimer.rotate(angle=self.lattice_gamma, axis=dimer.coordinate_system[2])
-
         self.dimer = dimer
 
         self.v1 = np.array([self.lattice_a, 0, 0])
@@ -142,7 +135,6 @@ class Lattice(isambard.ampal.Assembly):
             nbs = [[1,0], [0,1], [-1,0], [0,-1], [1,1], [-1,1], [1,-1], [-1,-1]]
         else:
             nbs = [[1,0], [0,1], [-1,0], [0,-1]]
-
         for [x, y] in nbs:
             m = copy.deepcopy(self.dimer)
             m.translate(x*self.v1 + y*self.v2)
@@ -184,8 +176,13 @@ class Lattice(isambard.ampal.Assembly):
                 if (mindist < cutoff).sum() > 1: return True
         return False
 
-    def visualise(self):
-        return visualise(self)
+    @property
+    def coordinate_system(self):
+        return self.dimer.coordinate_system
+
+    def visualise(self, coordinate_system=False):
+        coordinate_system_ = self.coordinate_system if coordinate_system else None
+        return visualise(self, coordinate_system=coordinate_system_)
 
 
 SPECIFICATIONS = {'Dimer': Dimer,

@@ -63,7 +63,7 @@ def fix_PDB_element_column(PDB_file):
     return ret
 
 
-def visualise(mol):
+def visualise(mol, coordinate_system=None):
     '''A helper function to visualise an ampal object in the notebook using nglview
     '''
     view = None
@@ -71,4 +71,13 @@ def visualise(mol):
         tmp.write(mol.pdb.encode())
         tmp.seek(0)  # Resets the buffer back to the first line
         view = nglview.show_file(tmp.name)
+    if coordinate_system is not None:
+        view = add_coordinate_system_to_view(view, coordinate_system)
+    return view
+
+def add_coordinate_system_to_view(view, coordinate_system):
+    for v, name, color in zip(coordinate_system,
+                              ['x', 'y', 'z'],
+                              [[1, 0, 0], [0, 1, 0], [0, 0, 1]]):
+        view.shape.add_arrow([0, 0, 0], 5*v, color, 0.5, name)
     return view
