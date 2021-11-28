@@ -1,8 +1,3 @@
-# Usage
-```
-$ python ../optimise.py [-h] specification scapTet_pdb sequences_csv parameters_csv population generations cores
-```
-
 First, edit `sequences.csv` and `parameters.csv` files, and then run by
 ```
 $ python ../optimise.py Dimer ../../notebooks/scapTet.pdb  ./sequences.csv ./parameters.csv 2000 20 8
